@@ -1,6 +1,6 @@
 ---
 title: "Lab 3"
-#author: "Insert Name"
+#author: "Jefferson Ratliff"
 date: "Math 241, Week 3"
 output:
   pdf_document
@@ -10,8 +10,6 @@ urlcolor: blue
 ```{r setup, include=FALSE}
 # Do not modify this chunk.
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-
-
 ```
 
 ```{r}
@@ -60,16 +58,54 @@ ht <- head(pdxTrees$Tree_Height, n = 15)
 
 a. What are the classes of `dats`, `pdxTreesSmall` and `ht`?
 
+```{r}
+class(dats)
+class(pdxTreesSmall)
+class(ht)
+```
+
+
 b. Find the 10th, 11th, and 12th values of `ht`.
+
+```{r}
+ht[10:12]
+```
+
 
 c. Provide the `Species` column of `pdxTrees` as a data frame with one column.
 
+```{r}
+pdxTrees_species_df <- select(pdxTrees, Species)
+
+pdxTrees_species_df
+```
+
+
 d. Provide the `Species` column of `pdxTrees` as a character vector.
+
+```{r}
+pdxTrees_species_chr <- head(pdxTrees$Species)
+as.character(pdxTrees_species_chr)
+```
+
 
 e. Provide code that gives us the second entry in `sets` from `dats`.
 
+```{r}
+dats$sets[2]
+```
+
+
 f. Subset `pdxTreesSmall` to only `Douglas-fir` and then provide the `DBH` and `Condition` of the 4th `Douglas-fir` in the dataset.  (Feel free to mix in some `tidyverse` code if you would like to.)
 
+```{r}
+library(dplyr)
+
+pdxTreesSmall %>%
+  filter(Species == "Douglas-fir") %>%
+  slice(4) %>%
+  select(DBH, Condition)
+```
 
 
 
@@ -96,6 +132,41 @@ thing6 <- thing2 + thing4*thing3
 ```
 
 
+```{r}
+calculate_CI <- function(data, confidence_level = 0.95) {
+  
+  if (missing(data) || is.null(data)) {
+    stop("Please provide a valid data set.")
+  }
+  
+
+  if (confidence_level <= 0 || confidence_level >= 1) {
+    stop("Confidence level must be between 0 and 1.")
+  }
+
+
+  n <- length(data)
+  mean_val <- mean(data)
+  std_err <- sd(data) / sqrt(n)
+  t_value <- qt(p = (1 + confidence_level) / 2, df = n - 1)
+
+  lower_bound <- mean_val - t_value * std_err
+  upper_bound <- mean_val + t_value * std_err
+  
+  
+  result <- list(
+    mean = mean_val,
+    lower_bound = lower_bound,
+    upper_bound = upper_bound,
+    confidence_level = confidence_level
+  )
+  
+  return(result)
+}
+
+result <- calculate_CI(pdxTrees$DBH, confidence_level = 0.95)
+print(result)
+```
 
 
 
@@ -128,15 +199,81 @@ a. Edit `histo()` so that the user can set
 * The fill color for the bars
 * The color outlining the bars
 
+```{r}
+histo <- function(data, x, bins = 30, fill_color = "blue", outline_color = "black") {
+  x <- enquo(x)
+  ggplot(data = data, mapping = aes(x = !!x)) +
+    geom_histogram(bins = bins, fill = fill_color, color = outline_color)
+}
+
+# Test it with custom parameters
+histo(pdxTrees, DBH, bins = 20, fill_color = "green", outline_color = "red")
+```
+
+
 b. Write code to create a basic scatterplot with `ggplot2`. Then write and test a function to create a basic scatterplot.
+
+```{r}
+library(ggplot2)
+
+
+basic_scatterplot <- ggplot(data = mtcars, aes(x = mpg, y = wt)) +
+  geom_point()
+
+
+print(basic_scatterplot)
+
+
+scatterplot_basic <- function(data, x, y) {
+  ggplot(data = data, aes(x = {{ x }}, y = {{ y }})) +
+    geom_point()
+}
+
+
+scatterplot_basic(mtcars, mpg, wt)
+```
 
 c. Modify your scatterplot function to allow the user to ...
 
 * Color the points by another variable.
 * Set the transparency.
 
+```{r}
+scatter_function <- function(data, x, y, alpha = 0.5, color = Condition){
+   x <- enquo(x)
+   y <- enquo(y)
+   color <- enquo(color)
+  ggplot(data = data, mapping = aes(x = !!x, y = !!y, color = !!color)) +
+    geom_point(alpha = alpha)
+}
+
+# Testing scatter function
+scatter_function(pdxTrees, Tree_Height, Carbon_Storage_value, alpha = 0.9, color = Native)
+```
+
+
 d. Write and test a function for your favorite `ggplot2` graph.
 
+```{r}
+library(ggplot2)
+
+#Basic violin plot code
+ggplot(data = pdxTrees, aes(x = Condition, y = Carbon_Storage_lb)) +
+  geom_violin()
+```
+
+```{r}
+#Function for basic violin plot
+violin_function <- function(data, x, y){
+   x <- enquo(x)
+   y <- enquo(y)
+  ggplot(data = data, mapping = aes(x = !!x, y = !!y)) +
+    geom_violin()
+}
+
+#Testing violin function
+violin_function(pdxTrees, Condition, Carbon_Storage_lb)
+```
 
 ### Problem 4: Functioning `dplyr`
 
@@ -150,20 +287,73 @@ pdxTrees %>%
   mutate(prop = n/sum(n)) %>%
   ungroup()
 ```
+```{r}
+conditional_proportions_table <- function(data, var1, var2) {
+  data %>%
+    count(!!enquo(var1), !!enquo(var2)) %>%
+    group_by(!!enquo(var1)) %>%
+    mutate(prop = n/sum(n)) %>%
+    ungroup()
+}
+
+result <- conditional_proportions_table(pdxTrees, Native, Condition)
+print(result)
+```
 
 
 b.  Write a function to compute the mean, median, sd, min, max, sample size, and number of missing values of a quantitative variable by the categories of another variable.  Make sure the output is a data frame (or tibble).  Don't forget to test your function.
+
+```{r}
+library(dplyr)
+
+quant_summary_by_category <- function(data, category_var, quant_var) {
+  data %>%
+    group_by(!!enquo(category_var)) %>%
+    summarize(
+      mean = mean(!!enquo(quant_var), na.rm = TRUE),
+      median = median(!!enquo(quant_var), na.rm = TRUE),
+      sd = sd(!!enquo(quant_var), na.rm = TRUE),
+      min = min(!!enquo(quant_var), na.rm = TRUE),
+      max = max(!!enquo(quant_var), na.rm = TRUE),
+      n = n(),
+      missing_values = sum(is.na(!!enquo(quant_var)))
+    ) %>%
+    ungroup()
+}
+
+
+example_data <- data.frame(
+  Category = rep(c("A", "B", "C"), each = 5),
+  Value = c(1, 2, 3, 4, NA, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
+)
+
+result <- quant_summary_by_category(example_data, Category, Value)
+print(result)
+
+```
 
 
 ### Problem 5: another `babynames` exercise
 
 Write a function called grab_name that, when given a **name** ***and a year*** as an argument, returns the rows from the `babynames` data frame in the `babynames` package that match that name for that year (and returns an error if that name and year combination does not match any rows). Run the function once with the arguments **Ezekiel and 1883** and once with **Ezekiel and 1983**.
 
-```{r, eval=FALSE}
-#' Make sure to switch eval = FALSE to eval = TRUE before knitting!!
-
+```{r, eval=TRUE}
 grab_name <- function(myname, myyear) {
-  # Code your function here
+  result <- babynames %>% 
+    filter(name == myname, year == myyear)
+  
+  if (nrow(result) == 0) {
+    stop("No matching rows found for the given name and year combination.")
+  }
+  
+  return(result)
 }
 
+# Test with Ezekiel and 1883
+result_1883 <- grab_name("Ezekiel", 1883)
+print(result_1883)
+
+# Test with Ezekiel and 1983
+result_1983 <- grab_name("Ezekiel", 1983)
+print(result_1983)
 ```
