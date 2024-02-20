@@ -18,7 +18,11 @@ library(tidyverse)
 
 ### Problem 1: COVID survey - interpretation
 
+Part of the graphs complexity stems from the wide variety of different demographic data points as well as 6 survey questions all pertaining to confidence in the COVID Vaccines. The goal of the survey and graph is to collect and communicate public attitude     
+
 
 
 
 ### Problem 2: COVID survey - reconstruct
+
+
