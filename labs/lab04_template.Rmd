@@ -8,7 +8,11 @@ urlcolor: blue
 ---
 ```{r setup, include=FALSE}
 # Do not modify this chunk.
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
 ```
 
 ```{r}
@@ -18,11 +22,128 @@ library(tidyverse)
 
 ### Problem 1: COVID survey - interpretation
 
-Part of the graphs complexity stems from the wide variety of different demographic data points as well as 6 survey questions all pertaining to confidence in the COVID Vaccines. The goal of the survey and graph is to collect and communicate public attitude     
+Part of the graphs complexity stems from the wide variety of different demographic data points as well as 6 survey questions all pertaining to confidence in the COVID Vaccines. The goal of the survey and graph is to collect and communicate public attitudes towards the COVID-19 Vaccine. 
 
+They ask 6 questions:
 
+1) Based on my understanding, I believe the Vaccine is Safe?
+2) Getting the vaccine will make me feel safer at work?
+3) I am concerned about the safety and side effects of the vaccine
+4) I am confident in the scientific vetting process for the new COVID vaccine?  
+5) I trust the information that I have received about the vaccine? 
+6) I will recommend the vaccine to my family, friends, and community. 
 
+These question were asked with consideration for 7 variables: 
+
+1) age 
+2) gender
+3) race
+4) ethnicity 
+5) Profession 
+6) Had COVID vaccine
+7) Had flu vaccine 
+
+The results of the responses are mapped out on 
 
 ### Problem 2: COVID survey - reconstruct
 
+
+```{r}
+covid_survey_longer <- covid_survey %>%
+  pivot_longer(
+    cols = starts_with("exp_"),
+    names_to = "explanatory",
+    values_to = "explanatory_value"
+) %>%
+filter(!is.na(explanatory_value)) %>%
+pivot_longer(
+  cols = starts_with("resp_"),
+  names_to = "response",
+  values_to = "response_value"
+)
+```
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+
+# Print dimensions of the resulting data frame
+dim(covid_survey)
+
+# Eliminate rows with all values (aside from response_id) missing
+covid_survey_clean <- covid_survey %>%
+  filter(if_any(everything(), ~!is.na(.) & !is.na(response_id)))
+
+# Print dimensions of the resulting data frame
+dim(covid_survey_clean)
+
+# Relabel the survey response values
+covid_survey_relabel <- covid_survey_clean %>%
+  mutate(
+    exp_already_vax = recode(exp_already_vax, `0` = "No", `1` = "Yes"),
+    exp_flu_vax = recode(exp_flu_vax, `0` = "No", `1` = "Yes"),
+    exp_profession = recode(exp_profession, `0` = "Medical", `1` = "Nursing"),
+    exp_gender = recode(exp_gender, `0` = "Male", `1` = "Female", `3` = "Non-binary third gender", `4` = "Prefer not to say"),
+    exp_race = recode(exp_race, `1` = "American Indian / Alaskan Native", `2` = "Asian", `3` = "Black / African American", `4` = "Native Hawaiian / Other Pacific Islander", `5` = "White"),
+    exp_ethnicity = recode(exp_ethnicity, `1` = "Hispanic / Latino", `2` = "Non-Hispanic/Non-Latino"),
+    exp_age_bin = recode(exp_age_bin, `0` = "<20", `20` = "21-25", `25` = "26-30", `30` = ">30")
+  )
+
+# Print dimensions of the resulting data frame
+dim(covid_survey_relabel)
+
+# Pivot the data longer
+covid_survey_longer <- covid_survey_relabel %>%
+  pivot_longer(
+    cols = starts_with("exp_"),
+    names_to = "explanatory",
+    values_to = "explanatory_value"
+  ) %>%
+  filter(!is.na(explanatory_value)) %>%
+  pivot_longer(
+    cols = starts_with("resp_"),
+    names_to = "response",
+    values_to = "response_value"
+  )
+
+# Print the resulting tibble
+print(covid_survey_longer)
+
+# Group by explanatory, explanatory_value, and response, and calculate summary statistics
+covid_survey_summary_stats_by_group <- covid_survey_longer %>%
+  group_by(explanatory, explanatory_value, response) %>%
+  summarize(
+    mean = mean(response_value),
+    low = quantile(response_value, 0.1),
+    high = quantile(response_value, 0.9)
+  )
+
+# Print the resulting tibble
+print(covid_survey_summary_stats_by_group)
+
+# Group by response and calculate summary statistics
+covid_survey_summary_stats_all <- covid_survey_longer %>%
+  group_by(response) %>%
+  summarize(
+    mean = mean(response_value),
+    low = quantile(response_value, 0.1),
+    high = quantile(response_value, 0.9),
+    explanatory = "All",
+    explanatory_value = ""
+  )
+
+# Print the resulting tibble
+print(covid_survey_summary_stats_all)
+
+# Bind the two data frames of summary statistics together by row
+covid_survey_summary_stats <- bind_rows(covid_survey_summary_stats_all, covid_survey_summary_stats_by_group)
+
+# Print the resulting tibble
+print(covid_survey_summary_stats)
+```
+
+
+```{r}
+
+```
 
