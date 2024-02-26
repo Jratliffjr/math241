@@ -1,6 +1,6 @@
 ---
 title: "Lab 4"
-#author: "Jefferson Ratliff"
+author: "Jefferson Ratliff"
 date: "Math 241, Week 4"
 output:
   pdf_document
@@ -43,88 +43,81 @@ These question were asked with consideration for 7 variables:
 6) Had COVID vaccine
 7) Had flu vaccine 
 
-The results of the responses are mapped out on 
+The results of the responses are mapped out across each demograohic varible and ranked on a 1-5 scale depending on confidence/agreement to the answer. 
 
-### Problem 2: COVID survey - reconstruct
+One of the aspects that I found the most suprising about the graph and the data that it represents is how wide the mean values are for each question among the vaccinated demographic variable showing a wide varerity of answers for those who were surveyed outlining the wide aray of reasons that indivisuals chose to get the vaccine. 
+The narrow and high range on the questions pertaining to trust in the vaccine and the broader scientific information involving the vaccine demonstrate an overall very strong belief in the vaccines amongst the public particularly amongst those who are vaccinated for the flu and middle aged people. 
 
 
-```{r}
+
+### Problem 2: COVID survey - reconstruct 
+
+
+Step 1:
+
+library(readr)
+covid_survey <- read_csv("/Users/jeffersonratliff/Documents/GitHub/math241/data/covid-survey.csv")
+
+
+
+
+covid_survey <- covid_survey %>% filter(if_all(everything(), ~ !is.na(.)))
+
+
+
+Step 2:
+
+covid_survey <- covid_survey %>% 
+  mutate(exp_already_vax = recode(exp_already_vax, "0" = "No", "1" = "Yes"))
+covid_survey <- covid_survey %>% 
+  mutate(exp_flu_vax = recode(exp_flu_vax, "0" = "No", "1" = "Yes"))
+covid_survey <- covid_survey %>% 
+  mutate(exp_profession = recode(exp_profession, "0" = "Medical", "1" = "Nursing"))
+covid_survey <- covid_survey %>% 
+  mutate(exp_gender = recode(exp_gender, "0" = "Male", "1" = "Female", "3" = "Non-binary third gender", "4" = "Prefer not to say"))
+covid_survey <- covid_survey %>% 
+  mutate(exp_race = recode(exp_race, "1" = "American Indian/Alaskan Native", "2" = "Asian", "3" = "Black/African American", "4" = "Native Hawaiian/Other Pacific Islander", "5" = "White"))
+covid_survey <- covid_survey %>% 
+  mutate(exp_ethnicity = recode(exp_ethnicity, "1" = "Hispanic/Latino", "2" = "Non-Hispanic/Non-Latino"))
+covid_survey <- covid_survey %>% 
+  mutate(exp_age_bin = recode(exp_age_bin, "0" = "<20", "20" = "21-25", "25" = "26-30", "30" = ">30"))
+
+print(dim(covid_survey))
+
+
+Step 3:
+
 covid_survey_longer <- covid_survey %>%
-  pivot_longer(
-    cols = starts_with("exp_"),
-    names_to = "explanatory",
-    values_to = "explanatory_value"
+  pivot_longer(cols = starts_with("exp_"),
+names_to = "explanatory",
+values_to = "explanatory_value"
 ) %>%
 filter(!is.na(explanatory_value)) %>%
 pivot_longer(
-  cols = starts_with("resp_"),
-  names_to = "response",
-  values_to = "response_value"
+cols = starts_with("resp_"),
+names_to = "response",
+values_to = "response_value"
 )
-```
 
-```{r}
-# Load necessary libraries
-library(tidyverse)
 
-# Print dimensions of the resulting data frame
-dim(covid_survey)
+step 4:
 
-# Eliminate rows with all values (aside from response_id) missing
-covid_survey_clean <- covid_survey %>%
-  filter(if_any(everything(), ~!is.na(.) & !is.na(response_id)))
-
-# Print dimensions of the resulting data frame
-dim(covid_survey_clean)
-
-# Relabel the survey response values
-covid_survey_relabel <- covid_survey_clean %>%
-  mutate(
-    exp_already_vax = recode(exp_already_vax, `0` = "No", `1` = "Yes"),
-    exp_flu_vax = recode(exp_flu_vax, `0` = "No", `1` = "Yes"),
-    exp_profession = recode(exp_profession, `0` = "Medical", `1` = "Nursing"),
-    exp_gender = recode(exp_gender, `0` = "Male", `1` = "Female", `3` = "Non-binary third gender", `4` = "Prefer not to say"),
-    exp_race = recode(exp_race, `1` = "American Indian / Alaskan Native", `2` = "Asian", `3` = "Black / African American", `4` = "Native Hawaiian / Other Pacific Islander", `5` = "White"),
-    exp_ethnicity = recode(exp_ethnicity, `1` = "Hispanic / Latino", `2` = "Non-Hispanic/Non-Latino"),
-    exp_age_bin = recode(exp_age_bin, `0` = "<20", `20` = "21-25", `25` = "26-30", `30` = ">30")
-  )
-
-# Print dimensions of the resulting data frame
-dim(covid_survey_relabel)
-
-# Pivot the data longer
-covid_survey_longer <- covid_survey_relabel %>%
-  pivot_longer(
-    cols = starts_with("exp_"),
-    names_to = "explanatory",
-    values_to = "explanatory_value"
-  ) %>%
-  filter(!is.na(explanatory_value)) %>%
-  pivot_longer(
-    cols = starts_with("resp_"),
-    names_to = "response",
-    values_to = "response_value"
-  )
-
-# Print the resulting tibble
-print(covid_survey_longer)
-
-# Group by explanatory, explanatory_value, and response, and calculate summary statistics
-covid_survey_summary_stats_by_group <- covid_survey_longer %>%
+covid_survey_summary_stats_by_group <- covid_survey %>%
   group_by(explanatory, explanatory_value, response) %>%
-  summarize(
+  summarise(
     mean = mean(response_value),
     low = quantile(response_value, 0.1),
     high = quantile(response_value, 0.9)
   )
 
-# Print the resulting tibble
 print(covid_survey_summary_stats_by_group)
 
-# Group by response and calculate summary statistics
-covid_survey_summary_stats_all <- covid_survey_longer %>%
+
+Step 5:
+
+covid_survey_summary_stats_all <- covid_survey %>%
   group_by(response) %>%
-  summarize(
+  summarise(
     mean = mean(response_value),
     low = quantile(response_value, 0.1),
     high = quantile(response_value, 0.9),
@@ -132,18 +125,31 @@ covid_survey_summary_stats_all <- covid_survey_longer %>%
     explanatory_value = ""
   )
 
-# Print the resulting tibble
+
 print(covid_survey_summary_stats_all)
 
-# Bind the two data frames of summary statistics together by row
+
+
 covid_survey_summary_stats <- bind_rows(covid_survey_summary_stats_all, covid_survey_summary_stats_by_group)
 
-# Print the resulting tibble
+
 print(covid_survey_summary_stats)
-```
 
 
-```{r}
+The Visualization: 
 
-```
+ggplot(covid_survey, aes(x = age, y = mean, fill = response)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = low, ymax = high), position = position_dodge(0.9), width = 0.25) +
+  labs(title = "Confidence in the Vaccine Safety by Age Group",
+       x = "Age Group",
+       y = "Mean Value") +
+  theme_minimal() +
+  facet_wrap(~explanatory, scales = "free_y")
+
+
+
+
+
+
 
