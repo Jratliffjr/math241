@@ -50,7 +50,7 @@ library(rnoaa)
 a. First things first, go to [this NOAA website](https://www.ncdc.noaa.gov/cdo-web/token) to get a key emailed to you.  Then insert your key below:
 
 ```{r, eval = FALSE}
-options(noaakey = "INSERT KEY")
+options(noaakey = "https://www.ncdc.noaa.gov/cdo-web/token")
 ```
 
 
