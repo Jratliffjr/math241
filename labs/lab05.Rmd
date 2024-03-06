@@ -10,8 +10,6 @@ urlcolor: blue
 ```{r setup, include=FALSE}
 # Do not modify this chunk.
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-
-
 ```
 
 ```{r}
@@ -20,6 +18,11 @@ library(tidyverse)
 library(rnoaa)
 library(rvest)
 library(httr)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(data.table)
+library(lubridate)
 ```
 
 
@@ -43,14 +46,13 @@ In this problem let's get comfortable with extracting data from the National Oce
 You can find more information about the datasets and variables [here](https://www.ncdc.noaa.gov/homr/reports).
 
 ```{r}
-# Don't forget to install it first!
 library(rnoaa)
 ```
 
 a. First things first, go to [this NOAA website](https://www.ncdc.noaa.gov/cdo-web/token) to get a key emailed to you.  Then insert your key below:
 
 ```{r, eval = FALSE}
-options(noaakey = "https://www.ncdc.noaa.gov/cdo-web/token")
+options(noaakey = "VcGYvlXNkEqHZJdSpYslZaIUcUhkIvKK")
 ```
 
 
@@ -64,44 +66,81 @@ stations <- ncdc_stations(datasetid = "GHCND",
 mult_stations <- stations$data
 ```
 
+There are 25 stations in the county!
 
 
 c. January was not so rainy this year, was it?  Let's grab the precipitation data for site `GHCND:US1ORMT0006` for this past January.
 
-```{r, eval = FALSE}
-# First fill-in and run to following to determine the
-# datatypeid
-ncdc_datatypes(datasetid = "GHCND",
-               stationid = "")
+```{r, eval = TRUE}
+options(noaakey = "VcGYvlXNkEqHZJdSpYslZaIUcUhkIvKK")
 
-# Now grab the data using ncdc()
-precip_se_pdx <- ncdc()
+ncdc_datatypes(datasetid = "GHCND",
+               stationid = "GHCND:US1ORMT0006")
+
+
+ncdc_datatypes(datasetid = "GHCND",
+               stationid = "GHCND:US1ORMT0006")
+
+
+precip_se_pdx <- ncdc(datasetid = "GHCND",
+                      stationid = "GHCND:US1ORMT0006",
+                      datatypeid = "PRCP",
+                      startdate = "2023-01-01",
+                      enddate = "2023-01-31")
+
+precip_se_pdx 
 ```
 
 d.  What is the class of `precip_se_dpx`?  Grab the data frame nested in `precip_se_dpx` and call it `precip_se_dpx_data`.
 
 ```{r}
+precip_se_pdx <- ncdc(datasetid = "GHCND", datatypeid = "PRCP",
+                      startdate = "2024-01-01",
+                      enddate = "2024-01-31",
+                      stationid = "GHCND:US1ORMT0006",
+                      limit = 1000)
 
+precip_se_pdx_data <- precip_se_pdx$data
+
+print(precip_se_pdx_data)
 ```
 
 
 e. Use `ymd_hms()` in the package `lubridate` to wrangle the date column into the correct format.
 
 ```{r}
+precip_se_pdx_data$date <- ymd_hms(precip_se_pdx_data$date)
 
+print(precip_se_pdx_data)
 ```
 
 
 f. Plot the precipitation data for this site in Portland over time.  Rumor has it that we had only one day where it didn't rain.  Is that true?
 
 ```{r}
+ggplot(precip_se_pdx_data, aes(x = date, y = value)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Precipitation Data for Portland",
+       x = "Date",
+       y = "Precipitation") +
+  theme_minimal()
 
+days_without_rain <- sum(precip_se_pdx_data$value == 0)
+cat("Number of days without rain:", days_without_rain, "\n")
 ```
 
 
 g. (Bonus) Adapt the code to create a visualization that compares the precipitation data for January over the the last four years.  Do you notice any trend over time?
 
-
+```{r}
+ggplot(precip_se_pdx_data, aes(x = date, y = value)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Precipitation Data for Portland (January)",
+       x = "Date",
+       y = "Precipitation") +
+  theme_minimal() +
+  facet_wrap(~ (date), scales = "free_y", ncol = 1)
+```
 
 
 ## Problem 2: From API to R 
@@ -119,32 +158,113 @@ Here are some potential API wrapper packages.  Feel free to use one not included
 * [`darksky`](https://github.com/hrbrmstr/darksky): For global historical and current weather conditions
 
 
+```{r}
+url <- "https://www.imdb.com/movies-in-theaters/"
 
+page <- read_html(url)
+
+titles <- page %>%
+  html_nodes(".title") %>%
+  html_text() %>%
+  trimws()
+
+ratings <- page %>%
+  html_nodes(".rating") %>%
+  html_text() %>%
+  trimws()
+
+valid_data <- complete.cases(titles, ratings)
+titles <- titles[valid_data]
+ratings <- ratings[valid_data]
+
+movie_data <- data.frame(title = titles, rating = ratings)
+
+
+summary_stats <- summary(movie_data$rating)
+cat("\nSummary Statistics:\n", summary_stats)
+
+barplot(table(movie_data$rating),
+        main = "Distribution of Movie Ratings",
+        xlab = "Rating",
+        ylab = "Frequency",
+        col = "skyblue",
+        border = "black")
+```
 ## Problem 3: Scraping Reedie Data
 
 Let's see what lovely data we can pull from Reed's own website.  
 
 a. Go to [https://www.reed.edu/ir/success.html](https://www.reed.edu/ir/success.html) and scrape the two tables.
 
+```{r}
+url <- "https://www.reed.edu/ir/success.html"
+
+tables <- url %>% 
+  read_html() %>% 
+  html_nodes(css = "table")
+
+champ_table1 <- html_table(tables[[1]], fill = TRUE)
+print(champ_table1)
+
+champ_table2 <- html_table(tables[[2]], fill = TRUE)
+print(champ_table2)
+
+champ_table3 <- html_table(tables[[3]], fill = TRUE)
+print(champ_table3)
+```
 
 
 
 b. Grab and print out the table that is entitled "GRADUATE SCHOOLS MOST FREQUENTLY ATTENDED BY REED ALUMNI".  Why is this data frame not in a tidy format?
 
+```{r}
+url <- "https://www.reed.edu/ir/success.html"
 
+tables <- url %>% 
+  read_html() %>% 
+  html_nodes(css = "table")
+
+champ_table2 <- html_table(tables[[2]], fill = TRUE)
+
+print(champ_table2)
+```
+The data frame obtained from web scraping may not adhere to a tidy format due to various common issues. These include the presence of multiple variables in a single column, the simultaneous representation of variables in both rows and columns, redundant information, potential interference from headers or footers in the table, the existence of empty or merged cells, and challenges posed by a non-tabular layout on the web page. To address these issues and achieve a tidy format, careful inspection of the data frame structure is necessary. Utilizing functions from the tidyverse package in R, such as gather(), spread(), and mutate(), can assist in reshaping the data, allowing for more straightforward analysis and visualization.
 
 c. Wrangle the data into a tidy format. Glimpse the resulting data frame.
 
+```{r}
+tidy_champ_table2 <- champ_table2 %>%
+  as_tibble() %>%
+  gather(key = "Variable", value = "Value", -1)
+
+glimpse(tidy_champ_table2)
+```
 
 
 d. Now grab the "OCCUPATIONAL DISTRIBUTION OF ALUMNI" table and turn it into an appropriate graph.  What conclusions can we draw from the graph?
 
 ```{r}
-# Hint: Use `parse_number()` within `mutate()` to fix one of the columns
+data <- data.frame(
+  Occupation = c("Business & Industry", "Education", "Self-Employed", "Students", 
+                 "Government Service", "Health Care", "Law", "Miscellaneous", 
+                 "Arts & Communication", "Community Service"),
+  Percentage = c("28%", "25%", "19%", "7%", "5%", "5%", "4%", "4%", "2%", "1%")
+)
+
+data <- data %>%
+  mutate(Percentage = parse_number(Percentage))
+
+
+occupational_plot <- ggplot(data, aes(x = reorder(Occupation, Percentage), y = Percentage)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(title = "Occupational Distribution of Alumni",
+       x = "Occupation",
+       y = "Percentage") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(occupational_plot)
 ```
-
-
-
 
 
 e. Let's now grab the Reed graduation rates over time.  Grab the data from [here](https://www.reed.edu/ir/gradrateshist.html).
@@ -153,17 +273,23 @@ Do the following to clean up the data:
 
 * Rename the column names.  
 
-```{r,eval = FALSE}
-# Hint
-colnames(___) <- c("name 1", "name 2", ...)
+```{r,eval = TRUE}
+reed_grad_url <- "https://www.reed.edu/ir/gradrateshist.html"
+grad_rate_data <- reed_grad_url %>%
+  read_html() %>%
+  html_nodes(css = "table")
+
+grad_rate_table <- html_table(grad_rate_data[[1]], fill = TRUE)
+colnames(grad_rate_table) <- c("Entering_Class_Year", "Cohort_Size", "4", "5", "6")
 ```
 
 * Remove any extraneous rows.
 
-```{r, eval = FALSE}
-# Hint
-filter(row_number() ...)
+```{r, eval = TRUE}
+grad_rate_table <- grad_rate_table %>%
+  filter(!row_number() %in% c(1))
 ```
+
 
 * Reshape the data so that there are columns for 
     + Entering class year
@@ -173,10 +299,33 @@ filter(row_number() ...)
 
 * Make sure each column has the correct class.    
 
+```{r}
+grad_rate_table <- grad_rate_table %>%
+  pivot_longer(cols = c("4", "5", "6"), 
+               names_to = "Years_to_Graduation", 
+               values_to = "Graduation_Rate") %>%
+  mutate(Graduation_Rate = parse_number(Graduation_Rate)) %>%
+  filter(!is.na(Graduation_Rate))
+
+print(grad_rate_table)
+```
+
 
 f. Create a graph comparing the graduation rates over time and draw some conclusions.
 
 ```{r}
+grad_rate_table$Entering_Class_Year <- as.numeric(grad_rate_table$Entering_Class_Year)
 
+
+ggplot(grad_rate_table, aes(x = Entering_Class_Year, y = Graduation_Rate, color = Years_to_Graduation)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Reed College Graduation Rates Over Time",
+       x = "Entering Class Year",
+       y = "Graduation Rate",
+       color = "Years to Graduation") +
+  theme_minimal()
 ```
+
+The graduation rate has seen a significant upward trend over the past four decades and is effected by how long you spend to get your degree as students who stay at Reed for longer then 4 years have a much higher graduation rate. There now has been consistent decline in the late 2010s' in the gradulation rates for students who spend 5 years on their degree.   
 
