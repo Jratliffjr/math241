@@ -1,0 +1,142 @@
+---
+title: "Lab 6"
+author: "Jefferson Ratliff"
+date: "Math 241, Week 8"
+output:
+  pdf_document
+---
+
+```{r setup, include=FALSE}
+# Do not modify this chunk.
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+# Put all necessary libraries here
+library(tidyverse)
+library(leaflet)
+library(tidycensus)
+library(sf)
+library(tmap)
+library(lubridate)
+```
+
+## Due: Friday, March 22nd at 8:30am
+
+
+## Goals of this lab
+
+* Practice creating static and interactive choropleth maps.
+
+### Problem 1: Mapping Bike Rides in Portland
+
+For this problem we will return to the biketown dataset.
+
+a. Grab the code from activity 9, Problem 1 to read the data directly from Biketown's API- make sure to keep the longitude and latitude of the start of each ride (`StartLatitude`, `StartLongitude`).
+
+b. Create an interactive map of the start point of the rides using the `leaflet` package.  Make sure to include a legend and a title.  What do you notice about the distribution of rides?
+
+c. Using the `lubridate` package, create a variable, `month`, indicating the month of each variable.
+
+Add this variable to your interactive map using color.  Make sure to include a legend and be mindful of your color palette choice.  Do ride locations vary by months of the year?
+
+```{r}
+bk_jan <- read.csv("https://s3.amazonaws.com/biketown-tripdata-public/2017_01.csv")
+bk_jul <- read.csv("https://s3.amazonaws.com/biketown-tripdata-public/2017_07.csv")
+bk_nov <- read.csv("https://s3.amazonaws.com/biketown-tripdata-public/2017_11.csv")
+
+combined_rides <- bind_rows(bk_jan, bk_jul, bk_nov)
+
+biketown_data <- bind_rows(bk_jan, bk_jul, bk_nov) %>%
+  select(StartDate, StartTime, EndDate, EndTime, Distance_Miles,
+         BikeID, StartLatitude, StartLongitude) 
+
+biketown_data_months <- biketown_data %>% 
+  mutate(StartDate = mdy(StartDate)) %>%
+  mutate(EndDate = mdy(EndDate)) %>%
+  mutate(Month = month(StartDate)) %>%
+  mutate(color = Month) %>%
+  mutate(color = recode(color, 
+                        "1" = "blue",
+                        "7" = "green",
+                        "11" = "red"))
+
+color_values <- c("red" = "#993333", "blue" = "#336699", "green" = "#336633")
+biketown_data_months$color_hex <- color_values[biketown_data_months$color]
+```
+
+```{r}
+map_month <- leaflet(data = biketown_data_months) %>%
+  addTiles() %>%
+  addCircleMarkers(~StartLongitude, ~StartLatitude, color = ~color_hex, radius = 2, popup = "Start Point") %>%
+  addLegend("bottomright", colors = color_values, labels = c("January", "July", "November"), title = "Months") %>%
+  addProviderTiles("Esri.WorldStreetMap", group = "Esri") %>%
+  addProviderTiles("Esri.WorldImagery", group = "Satellite") %>%
+  addLayersControl(baseGroups = c("Esri", "Satellite"))
+
+map_month
+```
+
+Ride locations seem to be more popular throughout the whole of the city in July and November but January rides are more prominate in the city center. This may be becuse of the colder weather during the fall/winter.
+
+
+### Problem 2: Choropleth Maps
+
+For this problem, I want you to practice creating choropleth maps.  Let's grab some data using `tidycensus`.  Remember that you will have to set up an [API key](https://api.census.gov/data/key_signup.html).
+
+```{r, eval = FALSE}
+api_key <- "aa398bf1c001986d3726b00ab33248fc2d649dfc"
+```
+
+a. Let's grab data on the median gross rent (`B25064_001`) from the American Community Survey for Multnomah county, Oregon.  I want you to do data pulls at three geography resolutions: county subdivision, tract, and block group.
+
+```{r}
+# Set county and state
+county <- "Multnomah"
+state <- "OR"
+
+county_subdivision_data <- get_acs(geography = "county subdivision",
+                                   variables = "B25064_001",
+                                   state = state,
+                                   county = county,
+                                   geometry = TRUE)
+
+tract_data <- get_acs(geography = "tract",
+                       variables = "B25064_001",
+                       state = state,
+                       county = county,
+                       geometry = TRUE)
+
+block_group_data <- get_acs(geography = "block group",
+                             variables = "B25064_001",
+                             state = state,
+                             county = county,
+                             geometry = TRUE)
+```
+
+
+b. Create three choropleth maps of gross rent, one for each geography resolution.  What information can we glean from these maps?  Also, which resolution seems most useful for this variable?  Justify your answer.
+
+```{r}
+tm_shape(county_subdivision_data) +
+  tm_fill("estimate", title = "Median Gross Rent") +
+  tm_borders() +
+  tm_layout(main.title = "County Subdivision Level Choropleth Map") +
+  tm_legend(legend.outside = TRUE)
+
+tm_shape(tract_data) +
+  tm_fill("estimate", title = "Median Gross Rent") +
+  tm_borders() +
+  tm_layout(main.title = "Tract Level Choropleth Map") +
+  tm_legend(legend.outside = TRUE)
+
+tm_shape(block_group_data) +
+  tm_fill("estimate", title = "Median Gross Rent") +
+  tm_borders() +
+  tm_layout(main.title = "Block Group Level Choropleth Map") +
+  tm_legend(legend.outside = TRUE)
+```
+
+Census Tract seems to be the best option as there is the least amount of missing data as well as a clearer distinction between neighborhoods and better detail overall. The map by Tract level is also the most measurable. 
+
+
